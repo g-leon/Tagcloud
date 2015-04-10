@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/JustAdam/streamingtwitter"
-
 	"github.com/tg/gosortmap"
+	"menteslibres.net/gosexy/redis"
 )
 
 const STOPWORDS_FILE_NAME = "stopwords.txt"
@@ -24,9 +24,13 @@ var (
 	stopword  = make(map[string]bool)
 	wordcount = make(map[string]int)
 
+	redisHost = "127.0.0.1"
+	redisPort = uint(6379)
+
 	duration     = flag.Int("t", 5, "Number of seconds before closing the stream")
 	tagcloudSize = flag.Int("s", 0, "Print top 's' words and then the rest of the words")
 	printToFile  = flag.Bool("f", false, "Print the output to file in adition to terminal")
+	redisFlag    = flag.Bool("r", false, "Use Redis to count word frequency")
 )
 
 type JSONTag struct {
@@ -121,25 +125,39 @@ func init() {
 func main() {
 	flag.Parse()
 
-	// Create new streaming API client
-	client := streamingtwitter.NewClient()
+	// Create new Redis client (if -r flag was used)
+	redisClient := redis.New()
 
-	err := client.Authenticate(&streamingtwitter.ClientTokens{
+	err := redisClient.Connect(redisHost, redisPort)
+	if err != nil {
+		log.Fatalf("Redis connection failed: %s\n", err.Error())
+	}
+
+	// Cleanup Redis when program is done
+	defer func() {
+		redisClient.FlushAll()
+		redisClient.Close()
+	}()
+
+	// Create new streaming API client
+	twitterClient := streamingtwitter.NewClient()
+
+	err = twitterClient.Authenticate(&streamingtwitter.ClientTokens{
 		TokenFile: TOKEN_FILE_NAME,
 	})
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Twitter connection failed: %s\n", err.Error())
 	}
 
-	// Filter by language
+	// Filter the stream by language
 	args := &url.Values{}
 	args.Add("language", "en")
 
 	// Launch the stream
 	tweets := make(chan *streamingtwitter.TwitterStatus)
-	go client.Stream(tweets, streamingtwitter.Streams["Sample"], args)
+	go twitterClient.Stream(tweets, streamingtwitter.Streams["Sample"], args)
 
-	// Stream runs for a number of seconds equal to *duration
+	// Stream runs for <*duration> seconds
 	timer := time.NewTimer(time.Second * time.Duration(*duration))
 
 	go func() {
@@ -157,9 +175,9 @@ stream:
 			} else {
 				break stream
 			}
-		case err := <-client.Errors:
+		case err := <-twitterClient.Errors:
 			fmt.Printf("ERROR: '%s'\n", err)
-		case <-client.Finished:
+		case <-twitterClient.Finished:
 			return
 		}
 	}
