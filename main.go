@@ -12,30 +12,75 @@ import (
 	"time"
 
 	"github.com/JustAdam/streamingtwitter"
+
+	"github.com/tg/gosortmap"
 )
 
 const STOPWORDS_FILE_NAME = "stopwords.txt"
+const TOPWORDS_FILE_NAME = "topwords.txt"
 const TOKEN_FILE_NAME = "tokens.json"
 
 var (
 	stopword  = make(map[string]bool)
 	wordcount = make(map[string]int)
+
+	duration     = flag.Int("t", 3, "Number of seconds before closing the stream")
+	tagcloudSize = flag.Int("s", 0, "Prints top 's' words and then the rest of the words")
 )
 
-type OutputElem struct {
+type JSONTag struct {
 	Word  string `json:"word"`
 	Count int    `json:"count"`
 }
 
-func PrintOutput() {
-	sl := make([]OutputElem, 0)
+type JSONOutput struct {
+	TopWords []JSONTag `json:"top"`
+	Other    []JSONTag `json:"other"`
+}
+
+func PrintWordFreq() {
+	words := make([]JSONTag, 0)
 
 	for k, v := range wordcount {
-		sl = append(sl, OutputElem{k, v})
+		words = append(words, JSONTag{k, v})
 	}
 
-	j, _ := json.MarshalIndent(sl, "", "    ")
+	j, _ := json.MarshalIndent(words, "", "    ")
 	fmt.Println(string(j))
+}
+
+func PrintTopWordsFreq() {
+	top := make([]JSONTag, 0)
+	other := make([]JSONTag, 0)
+
+	nr := 0
+	for _, e := range sortmap.ByValDesc(wordcount) {
+		if nr < *tagcloudSize {
+			top = append(top, JSONTag{e.K.(string), e.V.(int)})
+		} else {
+			other = append(other, JSONTag{e.K.(string), e.V.(int)})
+		}
+		nr++
+	}
+
+	output := &JSONOutput{top, other}
+	j, _ := json.MarshalIndent(output, "", "    ")
+	fmt.Println(string(j))
+
+	PrintToFile(j)
+}
+
+func PrintToFile(o []byte) {
+	f, err := os.Create(TOPWORDS_FILE_NAME)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	_, err = f.Write(o)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func LoadStopwords() {
@@ -67,7 +112,6 @@ func init() {
 }
 
 func main() {
-	duration := flag.Int("t", 3, "Number of seconds before closing the stream")
 	flag.Parse()
 
 	// Create new streaming API client
@@ -93,32 +137,30 @@ func main() {
 
 	go func() {
 		<-timer.C
-		fmt.Println("exiting..")
-		//os.Exit(1)
 		close(tweets)
 	}()
 
 	// Streaming
-loop:
+stream:
 	for {
 		select {
-		// Recieve tweets
 		case status := <-tweets:
 			if status != nil {
-				//fmt.Println(status.Text)
 				CountWords(status.Text)
 			} else {
-				break loop
+				break stream
 			}
-		// Any errors that occured
 		case err := <-client.Errors:
 			fmt.Printf("ERROR: '%s'\n", err)
-			// Stream has finished
 		case <-client.Finished:
 			return
 		}
 	}
 
-	PrintOutput()
-
+	// Print results
+	if *tagcloudSize == 0 {
+		PrintWordFreq()
+	} else {
+		PrintTopWordsFreq()
+	}
 }
