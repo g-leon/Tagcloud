@@ -24,7 +24,7 @@ var (
 	stopword  = make(map[string]bool)
 	wordcount = make(map[string]int)
 
-	duration     = flag.Int("t", 3, "Number of seconds before closing the stream")
+	duration     = flag.Int("t", 5, "Number of seconds before closing the stream")
 	tagcloudSize = flag.Int("s", 0, "Print top 's' words and then the rest of the words")
 	printToFile  = flag.Bool("f", false, "Print the output to file in adition to terminal")
 )
@@ -104,7 +104,7 @@ func LoadStopwords() {
 	}
 }
 
-func CountWords(s string) {
+func CountWordFreq(s string) {
 	s = strings.ToLower(s)
 	ws := strings.Split(s, " ")
 	for _, w := range ws {
@@ -153,7 +153,7 @@ stream:
 		select {
 		case status := <-tweets:
 			if status != nil {
-				CountWords(status.Text)
+				CountWordFreq(status.Text)
 			} else {
 				break stream
 			}
