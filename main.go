@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,8 +25,9 @@ var (
 	stopword  = make(map[string]bool)
 	wordcount = make(map[string]int)
 
-	redisHost = "127.0.0.1"
-	redisPort = uint(6379)
+	redisHost   = "127.0.0.1"
+	redisPort   = uint(6379)
+	redisClient *redis.Client
 
 	duration     = flag.Int("t", 5, "Number of seconds before closing the stream")
 	tagcloudSize = flag.Int("s", 0, "Print top 's' words and then the rest of the words")
@@ -43,8 +45,29 @@ type JSONOutput struct {
 	Other    []JSONTag `json:"other"`
 }
 
+func GetWordFreqFromRedis() {
+	keys, err := redisClient.Keys("*")
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, k := range keys {
+		c, err := redisClient.Get(k)
+		if err != nil {
+			log.Fatal(err)
+		}
+		wordcount[k], err = strconv.Atoi(c)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+}
+
 func PrintWordFreq() {
 	words := make([]JSONTag, 0)
+
+	if *redisFlag {
+		GetWordFreqFromRedis()
+	}
 
 	for k, v := range wordcount {
 		words = append(words, JSONTag{k, v})
@@ -61,6 +84,10 @@ func PrintWordFreq() {
 func PrintTopWordsFreq() {
 	top := make([]JSONTag, 0)
 	other := make([]JSONTag, 0)
+
+	if *redisFlag {
+		GetWordFreqFromRedis()
+	}
 
 	nr := 0
 	for _, e := range sortmap.ByValDesc(wordcount) {
@@ -113,7 +140,12 @@ func CountWordFreq(s string) {
 	ws := strings.Split(s, " ")
 	for _, w := range ws {
 		if !stopword[w] {
-			wordcount[w]++
+			if *redisFlag {
+				redisClient.Incr(w)
+			} else {
+				wordcount[w]++
+			}
+
 		}
 	}
 }
@@ -126,14 +158,14 @@ func main() {
 	flag.Parse()
 
 	// Create new Redis client (if -r flag was used)
-	redisClient := redis.New()
+	redisClient = redis.New()
 
 	err := redisClient.Connect(redisHost, redisPort)
 	if err != nil {
 		log.Fatalf("Redis connection failed: %s\n", err.Error())
 	}
 
-	// Cleanup Redis when program is done
+	// Cleanup Redis after the program has ended
 	defer func() {
 		redisClient.FlushAll()
 		redisClient.Close()
