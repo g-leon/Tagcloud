@@ -25,7 +25,8 @@ var (
 	wordcount = make(map[string]int)
 
 	duration     = flag.Int("t", 3, "Number of seconds before closing the stream")
-	tagcloudSize = flag.Int("s", 0, "Prints top 's' words and then the rest of the words")
+	tagcloudSize = flag.Int("s", 0, "Print top 's' words and then the rest of the words")
+	printToFile  = flag.Bool("f", false, "Print the output to file in adition to terminal")
 )
 
 type JSONTag struct {
@@ -47,6 +48,10 @@ func PrintWordFreq() {
 
 	j, _ := json.MarshalIndent(words, "", "    ")
 	fmt.Println(string(j))
+
+	if *printToFile {
+		PrintToFile(j)
+	}
 }
 
 func PrintTopWordsFreq() {
@@ -67,7 +72,9 @@ func PrintTopWordsFreq() {
 	j, _ := json.MarshalIndent(output, "", "    ")
 	fmt.Println(string(j))
 
-	PrintToFile(j)
+	if *printToFile {
+		PrintToFile(j)
+	}
 }
 
 func PrintToFile(o []byte) {
