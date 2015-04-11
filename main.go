@@ -29,10 +29,11 @@ var (
 	redisPort   = uint(6379)
 	redisClient *redis.Client
 
-	duration     = flag.Int("t", 5, "Number of seconds before closing the stream")
-	tagcloudSize = flag.Int("n", 0, "Print top 'n' words and then the rest of the words")
-	printToFile  = flag.Bool("f", false, "Print the output to file in adition to terminal")
-	redisFlag    = flag.Bool("r", false, "Use Redis to count word frequency")
+	duration            = flag.Int("t", 5, "Number of seconds before closing the stream")
+	tagcloudSize        = flag.Int("n", 0, "Print top 'n' words and then the rest of the words")
+	printToFileFlag     = flag.Bool("f", false, "Print the output to file in adition to terminal")
+	stopPrintScreenFlag = flag.Bool("s", false, "Suppress printing the output to terminal")
+	redisFlag           = flag.Bool("r", false, "Use Redis to count word frequency")
 )
 
 type JSONTag struct {
@@ -44,16 +45,24 @@ type JSONOtherTag struct {
 	Other []JSONTag `json:"other"`
 }
 
-func GetWordFreqFromRedis() {
+func getWordFreqFromRedis() {
 	keys, err := redisClient.Keys("*")
 	if err != nil {
-		log.Fatal(err)
+		cleanupRedis()
+		log.Fatalf("Redis KEYS error: %s\n", err)
 	}
+
 	for _, k := range keys {
 		c, err := redisClient.Get(k)
 		if err != nil {
-			log.Fatal(err)
+			if err == redis.ErrNilReply {
+				continue
+			} else {
+				cleanupRedis()
+				log.Fatalf("Redis GET error on word '%v': %s\n", k, err.Error())
+			}
 		}
+
 		wordcount[k], err = strconv.Atoi(c)
 		if err != nil {
 			log.Fatal(err)
@@ -61,11 +70,11 @@ func GetWordFreqFromRedis() {
 	}
 }
 
-func PrintWordFreq() {
+func printWordFreq() {
 	words := make([]JSONTag, 0)
 
 	if *redisFlag {
-		GetWordFreqFromRedis()
+		getWordFreqFromRedis()
 	}
 
 	for k, v := range wordcount {
@@ -73,19 +82,21 @@ func PrintWordFreq() {
 	}
 
 	j, _ := json.MarshalIndent(words, "", "    ")
-	fmt.Println(string(j))
+	if !*stopPrintScreenFlag {
+		fmt.Println(string(j))
+	}
 
-	if *printToFile {
-		PrintToFile(j)
+	if *printToFileFlag {
+		printToFile(j)
 	}
 }
 
-func PrintTopWordsFreq() {
+func printTopWordsFreq() {
 	output := make([]interface{}, 0)
 	jot := &JSONOtherTag{}
 
 	if *redisFlag {
-		GetWordFreqFromRedis()
+		getWordFreqFromRedis()
 	}
 
 	nr := 0
@@ -97,17 +108,22 @@ func PrintTopWordsFreq() {
 		}
 		nr++
 	}
-	output = append(output, jot)
+
+	if len(jot.Other) > 0 {
+		output = append(output, jot)
+	}
 
 	j, _ := json.MarshalIndent(output, "", "    ")
-	fmt.Println(string(j))
+	if !*stopPrintScreenFlag {
+		fmt.Println(string(j))
+	}
 
-	if *printToFile {
-		PrintToFile(j)
+	if *printToFileFlag {
+		printToFile(j)
 	}
 }
 
-func PrintToFile(o []byte) {
+func printToFile(o []byte) {
 	f, err := os.Create(TOPWORDS_FILE_NAME)
 	if err != nil {
 		panic(err)
@@ -120,7 +136,33 @@ func PrintToFile(o []byte) {
 	}
 }
 
-func LoadStopwords() {
+func countWordFreq(s string) {
+	s = strings.ToLower(s)
+	ws := strings.Split(s, " ")
+	for _, w := range ws {
+		w = strings.TrimSpace(w)
+		if w == "" {
+			continue
+		}
+		if !stopword[w] {
+			if *redisFlag {
+				_, err := redisClient.Incr(w)
+				if err != nil {
+					log.Fatalf("Redis INCR error on word '%v': %s\n", w, err)
+				}
+			} else {
+				wordcount[w]++
+			}
+		}
+	}
+}
+
+func cleanupRedis() {
+	redisClient.FlushAll()
+	redisClient.Close()
+}
+
+func loadStopwords() {
 	file, err := os.Open(STOPWORDS_FILE_NAME)
 	if err != nil {
 		log.Fatal(err)
@@ -134,23 +176,8 @@ func LoadStopwords() {
 	}
 }
 
-func CountWordFreq(s string) {
-	s = strings.ToLower(s)
-	ws := strings.Split(s, " ")
-	for _, w := range ws {
-		if !stopword[w] {
-			if *redisFlag {
-				redisClient.Incr(w)
-			} else {
-				wordcount[w]++
-			}
-
-		}
-	}
-}
-
 func init() {
-	LoadStopwords()
+	loadStopwords()
 }
 
 func main() {
@@ -162,14 +189,10 @@ func main() {
 
 		err := redisClient.Connect(redisHost, redisPort)
 		if err != nil {
-			log.Fatalf("Redis connection failed: %s\n", err.Error())
+			log.Fatalf("Redis connection failed: %s\n", err)
 		}
 
-		// Cleanup Redis after the program has ended
-		defer func() {
-			redisClient.FlushAll()
-			redisClient.Close()
-		}()
+		defer cleanupRedis()
 	}
 
 	// Create new streaming API client
@@ -179,7 +202,7 @@ func main() {
 		TokenFile: TOKEN_FILE_NAME,
 	})
 	if err != nil {
-		log.Fatalf("Twitter connection failed: %s\n", err.Error())
+		log.Fatalf("Twitter connection failed: %s\n", err)
 	}
 
 	// Filter the stream by language
@@ -204,12 +227,12 @@ stream:
 		select {
 		case status := <-tweets:
 			if status != nil {
-				CountWordFreq(status.Text)
+				countWordFreq(status.Text)
 			} else {
 				break stream
 			}
 		case err := <-twitterClient.Errors:
-			fmt.Printf("ERROR: '%s'\n", err)
+			fmt.Printf("Twitter client error: %s\n", err)
 		case <-twitterClient.Finished:
 			return
 		}
@@ -217,8 +240,8 @@ stream:
 
 	// Print results
 	if *tagcloudSize == 0 {
-		PrintWordFreq()
+		printWordFreq()
 	} else {
-		PrintTopWordsFreq()
+		printTopWordsFreq()
 	}
 }
