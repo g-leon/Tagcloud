@@ -216,25 +216,22 @@ func main() {
 	// Stream runs for <*duration> seconds
 	timer := time.NewTimer(time.Second * time.Duration(*duration))
 
-	go func() {
-		<-timer.C
-		close(tweets)
-	}()
-
 	// Streaming
 stream:
 	for {
 		select {
 		case status := <-tweets:
-			if status != nil {
-				countWordFreq(status.Text)
-			} else {
-				break stream
-			}
+			countWordFreq(status.Text)
 		case err := <-twitterClient.Errors:
 			fmt.Printf("Twitter client error: %s\n", err)
 		case <-twitterClient.Finished:
 			return
+		}
+
+		select {
+		case <-timer.C:
+			break stream
+		default:
 		}
 	}
 
