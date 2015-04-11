@@ -40,9 +40,8 @@ type JSONTag struct {
 	Count int    `json:"count"`
 }
 
-type JSONOutput struct {
-	TopWords []JSONTag `json:"top"`
-	Other    []JSONTag `json:"other"`
+type JSONOtherTag struct {
+	Other []JSONTag `json:"other"`
 }
 
 func GetWordFreqFromRedis() {
@@ -82,8 +81,8 @@ func PrintWordFreq() {
 }
 
 func PrintTopWordsFreq() {
-	top := make([]JSONTag, 0)
-	other := make([]JSONTag, 0)
+	output := make([]interface{}, 0)
+	jot := &JSONOtherTag{}
 
 	if *redisFlag {
 		GetWordFreqFromRedis()
@@ -92,14 +91,14 @@ func PrintTopWordsFreq() {
 	nr := 0
 	for _, e := range sortmap.ByValDesc(wordcount) {
 		if nr < *tagcloudSize {
-			top = append(top, JSONTag{e.K.(string), e.V.(int)})
+			output = append(output, JSONTag{e.K.(string), e.V.(int)})
 		} else {
-			other = append(other, JSONTag{e.K.(string), e.V.(int)})
+			jot.Other = append(jot.Other, JSONTag{e.K.(string), e.V.(int)})
 		}
 		nr++
 	}
+	output = append(output, jot)
 
-	output := &JSONOutput{top, other}
 	j, _ := json.MarshalIndent(output, "", "    ")
 	fmt.Println(string(j))
 
