@@ -18,7 +18,7 @@ import (
 )
 
 const STOPWORDS_FILE_NAME = "stopwords.txt"
-const TOPWORDS_FILE_NAME = "topwords.txt"
+const TOPWORDS_FILE_NAME = "topwords.json"
 const TOKEN_FILE_NAME = "tokens.json"
 
 var (
@@ -30,7 +30,7 @@ var (
 	redisClient *redis.Client
 
 	duration     = flag.Int("t", 5, "Number of seconds before closing the stream")
-	tagcloudSize = flag.Int("s", 0, "Print top 's' words and then the rest of the words")
+	tagcloudSize = flag.Int("n", 0, "Print top 'n' words and then the rest of the words")
 	printToFile  = flag.Bool("f", false, "Print the output to file in adition to terminal")
 	redisFlag    = flag.Bool("r", false, "Use Redis to count word frequency")
 )
@@ -158,23 +158,25 @@ func main() {
 	flag.Parse()
 
 	// Create new Redis client (if -r flag was used)
-	redisClient = redis.New()
+	if *redisFlag {
+		redisClient = redis.New()
 
-	err := redisClient.Connect(redisHost, redisPort)
-	if err != nil {
-		log.Fatalf("Redis connection failed: %s\n", err.Error())
+		err := redisClient.Connect(redisHost, redisPort)
+		if err != nil {
+			log.Fatalf("Redis connection failed: %s\n", err.Error())
+		}
+
+		// Cleanup Redis after the program has ended
+		defer func() {
+			redisClient.FlushAll()
+			redisClient.Close()
+		}()
 	}
-
-	// Cleanup Redis after the program has ended
-	defer func() {
-		redisClient.FlushAll()
-		redisClient.Close()
-	}()
 
 	// Create new streaming API client
 	twitterClient := streamingtwitter.NewClient()
 
-	err = twitterClient.Authenticate(&streamingtwitter.ClientTokens{
+	err := twitterClient.Authenticate(&streamingtwitter.ClientTokens{
 		TokenFile: TOKEN_FILE_NAME,
 	})
 	if err != nil {
