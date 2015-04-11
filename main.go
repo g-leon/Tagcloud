@@ -136,15 +136,28 @@ func printToFile(o []byte) {
 	}
 }
 
+// Returns true if the string contains a letter
+// A string with no letters is not considered a word
+func isWord(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+
+	for _, c := range s {
+		if c >= 'a' && c <= 'z' {
+			return true
+		}
+	}
+
+	return false
+}
+
 func countWordFreq(s string) {
 	s = strings.ToLower(s)
 	ws := strings.Split(s, " ")
 	for _, w := range ws {
 		w = strings.TrimSpace(w)
-		if w == "" {
-			continue
-		}
-		if !stopword[w] {
+		if !stopword[w] && isWord(w) {
 			if *redisFlag {
 				_, err := redisClient.Incr(w)
 				if err != nil {
