@@ -25,6 +25,7 @@ func TestTrimWord(t *testing.T) {
 		{" word ", "word"},
 		{"!,.?;!$%^&*()[]{}'/|><~`+-=\\\"word!,.?;!$%^&*()[]{}'/|><~`+-=\\\"", "word"},
 		{" \t\n word \n\t\r\n ", "word"},
+		{"\"a", "a"},
 	}
 
 	for _, c := range cases {
@@ -36,20 +37,11 @@ func TestTrimWord(t *testing.T) {
 }
 
 func TestSplitText(t *testing.T) {
-	in1 := "a b"
-	in2 := "a\nb"
-	want := []string{"a", "b"}
+	in := "a b\nc\td.e;f,g|h:i"
+	want := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i"}
 
 	i := 0
-	for _, v := range splitText(in1) {
-		if v != want[i] {
-			t.Errorf("Expected %q and got %q", want[i], v)
-		}
-		i++
-	}
-
-	i = 0
-	for _, v := range splitText(in2) {
+	for _, v := range splitText(in) {
 		if v != want[i] {
 			t.Errorf("Expected %q and got %q", want[i], v)
 		}
