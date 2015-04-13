@@ -3,7 +3,7 @@ A simple tagcloud service that counts the occurence of words from a stream of tw
 
 ## Quick Start
 - go get github.com/g-leon/Tagcloud
-- edit tokens.json to include your Twitter consumer key and consumer secret
+- edit tokens.json to include your Twitter OAuth credentials
 - go run main.go
 - go test
 
