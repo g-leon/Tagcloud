@@ -30,10 +30,10 @@ var (
 	redisClient *redis.Client
 
 	duration            = flag.Int("t", 5, "Number of seconds before closing the stream")
-	tagcloudSize        = flag.Int("n", 0, "Print top 'n' words and then the rest of the words")
-	printToFileFlag     = flag.Bool("f", false, "Print the output to file in adition to terminal")
+	tagcloudSize        = flag.Int("n", 0, "Print top 'n' words.")
+	printToFileFlag     = flag.Bool("f", false, "Print output to file in addition to terminal")
 	stopPrintScreenFlag = flag.Bool("s", false, "Suppress printing the output to terminal")
-	redisFlag           = flag.Bool("r", false, "Use Redis to count word frequency")
+	redisFlag           = flag.Bool("r", false, "Use Redis to store word frequency")
 )
 
 type JSONTag struct {
@@ -136,13 +136,23 @@ func printToFile(o []byte) {
 	}
 }
 
-// Returns true if the string contains a letter
-// A string with no letters is not considered a word
 func isWord(s string) bool {
-	if len(s) == 0 {
+	// String with less than 2 letters
+	if len(s) < 2 {
 		return false
 	}
 
+	// Twitter handle
+	if s[0] == '@' {
+		return false
+	}
+
+	// Links
+	if strings.Count(s, "http://") > 0 || strings.Count(s, "https://") > 0 {
+		return false
+	}
+
+	// Strings with no letters
 	for _, c := range s {
 		if c >= 'a' && c <= 'z' {
 			return true
@@ -157,6 +167,7 @@ func countWordFreq(s string) {
 	ws := strings.Split(s, " ")
 	for _, w := range ws {
 		w = strings.TrimSpace(w)
+		w = strings.Trim(w, "!,.?;!$%^&*()[]{}'/|><~`+-=\\\"")
 		if !stopword[w] && isWord(w) {
 			if *redisFlag {
 				_, err := redisClient.Incr(w)
