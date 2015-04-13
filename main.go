@@ -162,12 +162,17 @@ func isWord(s string) bool {
 	return false
 }
 
+func cleanWord(w string) string {
+	w = strings.TrimSpace(w)
+	w = strings.Trim(w, "!,.?;!$%^&*()[]{}'/|><~`+-=\\\"")
+	return w
+}
+
 func countWordFreq(s string) {
 	s = strings.ToLower(s)
 	ws := strings.Split(s, " ")
 	for _, w := range ws {
-		w = strings.TrimSpace(w)
-		w = strings.Trim(w, "!,.?;!$%^&*()[]{}'/|><~`+-=\\\"")
+		w = cleanWord(w)
 		if !stopword[w] && isWord(w) {
 			if *redisFlag {
 				_, err := redisClient.Incr(w)
