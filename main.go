@@ -169,12 +169,13 @@ func trimWord(w string) string {
 }
 
 func splitText(txt string) []string {
-	res := make([]string, 0)
-	ws := strings.Split(txt, " ")
-	for _, w := range ws {
-		sl := strings.Split(w, "\n")
-		res = append(res, sl...)
-	}
+	res := strings.FieldsFunc(txt, func(r rune) bool {
+		switch r {
+		case ' ', '\n', '\t', ',', '.', ':', ';', '|':
+			return true
+		}
+		return false
+	})
 
 	return res
 }
