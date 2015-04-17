@@ -3,6 +3,7 @@ A simple tagcloud service that counts the occurence of words from a stream of tw
 
 ## Quick Start
 - go get github.com/g-leon/Tagcloud
+- cd $GOPATH/src/github.com/g-leon/Tagcloud
 - edit tokens.json to include your Twitter OAuth credentials
 - go run main.go [OPTIONS]
 - go test
@@ -17,4 +18,15 @@ A simple tagcloud service that counts the occurence of words from a stream of tw
 -f  Print output to file in addition to terminal.
 -s  Suppress printing the output to terminal.
 ```
+
+### Run Tagcloud in a Docker container 
+- cd $GOPATH/src/github.com/g-leon/Tagcloud
+- docker build -t tagcloud .
+- docker run tagcloud [OPTIONS]
+
+### Use a dockerized Redis server
+- docker run -d -p 6379:6379 --name redis redis
+- cd $GOPATH/src/github.com/g-leon/Tagcloud
+- go run main.go [OPTIONS]
+
 
