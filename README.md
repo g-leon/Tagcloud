@@ -11,7 +11,8 @@ A simple tagcloud service that counts the occurence of words from a stream of tw
 ## Command Line Options
 ```
 -t  Number of seconds until the stream is closed (default is 5).
--n  Size of the tagcloud that contains most frequent N words (default is 0 - words are printed in random order). 
+-n  Size of the tagcloud that contains most frequent N words 
+    (default is 0 - words are printed in random order). 
     Rest of the words will be aggregated in the "other" object of the json output.
 -r  Use Redis to store and count the frequency of the words.
     Must have a Redis server started listening on the default port (6379).
