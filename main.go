@@ -25,15 +25,16 @@ var (
 	stopword  = make(map[string]bool)
 	wordcount = make(map[string]int)
 
-	redisHost   = "127.0.0.1"
-	redisPort   = uint(6379)
-	redisClient *redis.Client
+	redisClient  *redis.Client
+	redisHost    = os.Getenv("REDIS_PORT_6379_TCP_ADDR")
+	redisPort, _ = strconv.Atoi(os.Getenv("REDIS_PORT_6379_TCP_PORT"))
 
 	duration            = flag.Int("t", 5, "Number of seconds before closing the stream")
 	tagcloudSize        = flag.Int("n", 0, "Print top 'n' words.")
 	printToFileFlag     = flag.Bool("f", false, "Print output to file in addition to terminal")
 	stopPrintScreenFlag = flag.Bool("s", false, "Suppress printing the output to terminal")
 	redisFlag           = flag.Bool("r", false, "Use Redis to store word frequency")
+	redisDockerFlag     = flag.Bool("rd", false, "Used when using a dockerized Redis server")
 )
 
 type JSONTag struct {
@@ -228,7 +229,12 @@ func main() {
 	if *redisFlag {
 		redisClient = redis.New()
 
-		err := redisClient.Connect(redisHost, redisPort)
+		if redisHost == "" {
+			redisHost = "127.0.0.1"
+			redisPort = 6379
+		}
+
+		err := redisClient.Connect(redisHost, uint(redisPort))
 		if err != nil {
 			log.Fatalf("Redis connection failed: %s\n", err)
 		}
