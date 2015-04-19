@@ -20,14 +20,20 @@ A simple tagcloud service that counts the occurence of words from a stream of tw
 -s  Suppress printing the output to terminal.
 ```
 
-### Run Tagcloud in a Docker container 
+### Run in a Docker container 
 - cd $GOPATH/src/github.com/g-leon/Tagcloud
 - docker build -t tagcloud .
 - docker run tagcloud [OPTIONS]
 
-### Use a dockerized Redis server
-- docker run -d -p 6379:6379 --name redis redis
+### Run with a dockerized Redis server
+- docker run -d -p 127.0.0.1:6379:6379 --name redis redis
 - cd $GOPATH/src/github.com/g-leon/Tagcloud
 - go run main.go [OPTIONS]
+
+### Run a dockerized Tagcloud with a linked dockerized Redis server
+- docker run -d -p 127.0.0.1:6379:6379 --name redis redis
+- cd $GOPATH/src/github.com/g-leon/Tagcloud
+- docker build -t tagcloud .
+- docker run --link redis:redis tagcloud -r [OPTIONS]
 
 
