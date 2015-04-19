@@ -36,4 +36,12 @@ A simple tagcloud service that counts the occurence of words from a stream of tw
 - docker build -t tagcloud .
 - docker run --link redis:redis tagcloud -r [OPTIONS]
 
+### Run a dockerized Tagcloud with a linked dockerized Redis server using docker-compose
+- cd $GOPATH/src/github.com/g-leon/Tagcloud
+- mv Dockerfile Dockerfile.main
+- mv Dockerfile.docker-compose Dockerfile
+- open Dockerfile and ad command line options to "CMD go run main.go [OPTIONS]"
+- docker-compose build
+- docker-compose up
+
 
