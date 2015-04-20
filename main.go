@@ -34,7 +34,6 @@ var (
 	printToFileFlag     = flag.Bool("f", false, "Print output to file in addition to terminal")
 	stopPrintScreenFlag = flag.Bool("s", false, "Suppress printing the output to terminal")
 	redisFlag           = flag.Bool("r", false, "Use Redis to store word frequency")
-	redisDockerFlag     = flag.Bool("rd", false, "Used when using a dockerized Redis server")
 )
 
 type JSONTag struct {
